@@ -1,7 +1,4 @@
-export async function onRequest(context) {
-  // 从context中解构参数（避免直接在函数参数中写对象解构，可能触发解析器误判）
-  const { request, env } = context;
-  
+export async function onRequest({ request, env }) {
   const headers = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -48,7 +45,7 @@ export async function onRequest(context) {
     ).bind(name)
      .run();
 
-    // 日志输出（避免使用模板字符串中包含特殊符号）
+    // 日志输出
     console.log("删除结果:", name, result);
 
     // 判断逻辑
