@@ -1,4 +1,7 @@
-<export async function onRequest({ request, env }) {
+export async function onRequest(context) {
+  // 从context中解构参数（避免直接在函数参数中写对象解构，可能触发解析器误判）
+  const { request, env } = context;
+  
   const headers = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -20,7 +23,8 @@
 
   try {
     // 验证令牌
-    const token = request.headers.get("Authorization")?.replace("Bearer ", "");
+    const authHeader = request.headers.get("Authorization") || "";
+    const token = authHeader.replace("Bearer ", "");
     if (!token) {
       return new Response(
         JSON.stringify({ success: false, message: "令牌缺失" }),
@@ -28,7 +32,7 @@
       );
     }
 
-    // 获取要删除的名称（从 URL 参数）
+    // 获取要删除的名称（从URL参数）
     const url = new URL(request.url);
     const name = url.searchParams.get("name");
     if (!name) {
@@ -38,39 +42,36 @@
       );
     }
 
-    // 从 D1 中删除（打印调试信息）
+    // 执行删除操作
     const result = await env.DB.prepare(
       "DELETE FROM links WHERE name = ?"
     ).bind(name)
      .run();
 
-    // 打印结果到日志（方便排查，部署后可在Cloudflare控制台查看）
-    console.log(`删除 ${name} 的结果:`, result);
+    // 日志输出（避免使用模板字符串中包含特殊符号）
+    console.log("删除结果:", name, result);
 
-    // 修复判断逻辑：优先判断操作是否成功，再参考影响行数
+    // 判断逻辑
     if (result.success) {
-      // 即使 changes 为 0，只要操作成功，也可能是因为数据已被删除（重复删除）
       if (result.changes > 0) {
         return new Response(
           JSON.stringify({ success: true, message: "删除成功" }),
           { headers }
         );
       } else {
-        // 操作成功但未影响行数（可能是重复删除）
         return new Response(
           JSON.stringify({ success: true, message: "删除成功（该链接已不存在）" }),
           { headers }
         );
       }
     } else {
-      // 操作失败（如SQL错误）
       return new Response(
         JSON.stringify({ success: false, message: "删除失败" }),
         { status: 500, headers }
       );
     }
   } catch (err) {
-    console.error("删除失败:", err);
+    console.error("删除错误:", err);
     return new Response(
       JSON.stringify({ success: false, message: "服务器错误" }),
       { status: 500, headers }
