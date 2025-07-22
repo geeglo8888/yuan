@@ -13,22 +13,22 @@ export async function onRequest({ request, env }) {
 
   if (request.method !== "DELETE") {
     return new Response(
-      JSON.stringify({ success: false, message: "仅支持DELETE请求" }),
+      JSON.stringify({ success: false, message: "仅支持 DELETE 请求" }),
       { status: 405, headers }
     );
   }
 
   try {
     // 验证令牌
-    const token = request.headers.get("Authorization");
-    if (!token || typeof token !== "string") {
+    const token = request.headers.get("Authorization")?.replace("Bearer ", "");
+    if (!token) {
       return new Response(
         JSON.stringify({ success: false, message: "令牌缺失" }),
         { status: 403, headers }
       );
     }
 
-    // 从URL参数中获取要删除的名称
+    // 获取要删除的名称（从 URL 参数）
     const url = new URL(request.url);
     const name = url.searchParams.get("name");
     if (!name) {
@@ -38,20 +38,28 @@ export async function onRequest({ request, env }) {
       );
     }
 
-    // 从KV中删除该名称对应的链接
-    await env.LINKS.delete(name);
+    // 从 D1 中删除
+    const result = await env.DB.prepare(
+      "DELETE FROM links WHERE name = ?"
+    ).bind(name)
+     .run();
 
-    return new Response(
-      JSON.stringify({ success: true, message: "删除成功" }),
-      { status: 200, headers }
-    );
-
+    if (result.success && result.changes > 0) {  // changes 表示影响的行数
+      return new Response(
+        JSON.stringify({ success: true, message: "删除成功" }),
+        { headers }
+      );
+    } else {
+      return new Response(
+        JSON.stringify({ success: false, message: "未找到该链接" }),
+        { status: 404, headers }
+      );
+    }
   } catch (err) {
-    console.error("删除出错:", err);
+    console.error("删除失败:", err);
     return new Response(
-      JSON.stringify({ success: false, message: "删除失败" }),
+      JSON.stringify({ success: false, message: "服务器错误" }),
       { status: 500, headers }
     );
   }
 }
-    
