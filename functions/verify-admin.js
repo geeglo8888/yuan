@@ -1,6 +1,4 @@
-// 正确的默认导出方式，接收request和env参数
 export default async (request, env) => {
-    // 配置跨域响应头
     const headers = {
         "Content-Type": "application/json",
         "Access-Control-Allow-Origin": "*",
@@ -8,12 +6,10 @@ export default async (request, env) => {
         "Access-Control-Allow-Headers": "Content-Type"
     };
 
-    // 处理预检请求
     if (request.method === "OPTIONS") {
         return new Response(null, { headers });
     }
 
-    // 只允许POST请求
     if (request.method !== "POST") {
         return new Response(
             JSON.stringify({ success: false, message: "仅支持POST请求" }),
@@ -22,10 +18,8 @@ export default async (request, env) => {
     }
 
     try {
-        // 解析请求体
         const { username, password } = await request.json();
         
-        // 验证环境变量
         if (!env.USER || !env.PASSWORD) {
             return new Response(
                 JSON.stringify({ success: false, message: "未配置管理员信息" }),
@@ -33,7 +27,6 @@ export default async (request, env) => {
             );
         }
 
-        // 验证用户名密码
         if (username === env.USER && password === env.PASSWORD) {
             return new Response(
                 JSON.stringify({ 
@@ -55,4 +48,3 @@ export default async (request, env) => {
         );
     }
 };
-    
