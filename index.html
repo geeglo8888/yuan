@@ -68,15 +68,10 @@
         
         <!-- 网址列表 -->
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-            <div class="bg-white p-4 rounded shadow card-hover">
-                <div class="flex justify-between">
-                    <h3>微软</h3>
-                    <button class="delete-btn text-gray-400 hover:text-danger hidden">
-                        <i class="fa fa-times"></i>
-                    </button>
-                </div>
-                <p class="text-sm text-gray-500">https://www.microsoft.com</p>
-                <a href="https://www.microsoft.com" target="_blank" class="text-primary text-sm hover:underline">访问</a>
+            <!-- 动态内容将通过JS加载 -->
+            <div class="col-span-full text-center py-8 text-gray-500">
+                <i class="fa fa-circle-o-notch fa-spin text-2xl mb-2"></i>
+                <p>加载中...</p>
             </div>
         </div>
     </div>
@@ -87,12 +82,8 @@
             <h3 class="text-xl font-semibold mb-4">管理验证</h3>
             <form id="authForm" class="space-y-3">
                 <div>
-                    <label class="block text-sm mb-1">用户名</label>
-                    <input type="text" id="user" class="w-full p-2 border rounded">
-                </div>
-                <div>
-                    <label class="block text-sm mb-1">密码</label>
-                    <input type="password" id="pass" class="w-full p-2 border rounded">
+                    <label class="block text-sm mb-1">令牌</label>
+                    <input type="password" id="pass" class="w-full p-2 border rounded" placeholder="输入管理令牌">
                 </div>
                 <!-- 错误提示区域 -->
                 <div id="authError" class="error-message hidden"></div>
@@ -114,7 +105,10 @@
             const authForm = document.getElementById('authForm');
             const authError = document.getElementById('authError');
             const addForm = document.getElementById('addForm');
-            const deleteBtns = document.querySelectorAll('.delete-btn');
+            const linksContainer = document.querySelector('.grid');
+            
+            // 页面加载时读取KV数据并展示
+            loadLinks();
             
             // 验证按钮点击
             manageBtn.addEventListener('click', function() {
@@ -132,68 +126,20 @@
                 if (e.target === manageModal) manageModal.classList.remove('active');
             });
             
-            // 验证表单提交
-            authForm.addEventListener('submit', async function(e) {
+            // 验证表单提交（简化为直接验证令牌）
+            authForm.addEventListener('submit', function(e) {
                 e.preventDefault();
-                const username = document.getElementById('user').value.trim();
-                const password = document.getElementById('pass').value.trim();
-                authError.classList.add('hidden'); // 重置错误提示
+                const inputToken = document.getElementById('pass').value.trim();
                 
-                try {
-                    // 显示加载状态（可选）
-                    const submitBtn = authForm.querySelector('button[type="submit"]');
-                    const originalText = submitBtn.innerHTML;
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<i class="fa fa-spinner fa-spin mr-1"></i>验证中...';
-                    
-                    // 发送验证请求
-                    console.log('发送验证请求到:/verify-admin');
-                    const response = await fetch('/verify-admin', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ username, password }),
-                        // 确保不缓存请求
-                        cache: 'no-store'
-                    });
-                    
-                    // 解析响应
-                    let result;
-                    try {
-                        result = await response.json();
-                        console.log('验证接口响应:', result);
-                    } catch (parseError) {
-                        throw new Error('服务器返回格式错误，无法解析');
-                    }
-                    
-                    // 处理响应
-                    if (response.ok) {
-                        if (result.success) {
-                            // 验证成功
-                            manageToken = result.token;
-                            localStorage.setItem('manageToken', manageToken);
-                            isManageMode = true;
-                            manageModal.classList.remove('active');
-                            updateUI();
-                        } else {
-                            // 验证失败（用户名密码错误）
-                            authError.textContent = result.message || '用户名或密码不正确';
-                            authError.classList.remove('hidden');
-                        }
-                    } else {
-                        // 服务器返回错误状态码
-                        throw new Error(result.message || `服务器错误: ${response.status}`);
-                    }
-                    
-                } catch (error) {
-                    // 捕获所有错误（网络错误、解析错误等）
-                    console.error('验证请求失败:', error);
-                    authError.textContent = error.message || '验证过程出错，请稍后重试';
+                if (inputToken) {
+                    manageToken = inputToken;
+                    localStorage.setItem('manageToken', manageToken);
+                    isManageMode = true;
+                    manageModal.classList.remove('active');
+                    updateUI();
+                } else {
+                    authError.textContent = '请输入管理令牌';
                     authError.classList.remove('hidden');
-                } finally {
-                    // 恢复按钮状态
-                    const submitBtn = authForm.querySelector('button[type="submit"]');
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '验证';
                 }
             });
             
@@ -205,24 +151,154 @@
                 updateUI();
             }
             
-            // 更新UI
+            // 更新UI状态
             function updateUI() {
                 if (isManageMode) {
                     addForm.classList.remove('hidden');
-                    deleteBtns.forEach(btn => btn.classList.remove('hidden'));
+                    document.querySelectorAll('.delete-btn').forEach(btn => btn.classList.remove('hidden'));
                     manageBtn.innerHTML = '<i class="fa fa-sign-out mr-1"></i>退出管理';
                     manageBtn.classList.remove('bg-primary');
                     manageBtn.classList.add('bg-danger');
                 } else {
                     addForm.classList.add('hidden');
-                    deleteBtns.forEach(btn => btn.classList.add('hidden'));
+                    document.querySelectorAll('.delete-btn').forEach(btn => btn.classList.add('hidden'));
                     manageBtn.innerHTML = '<i class="fa fa-cog mr-1"></i>管理';
                     manageBtn.classList.remove('bg-danger');
                     manageBtn.classList.add('bg-primary');
                 }
             }
+            
+            // 从KV加载链接并渲染
+            async function loadLinks() {
+                try {
+                    const response = await fetch('/get-urls', { cache: 'no-store' });
+                    const result = await response.json();
+                    
+                    if (result.success) {
+                        renderLinks(result.links);
+                    } else {
+                        linksContainer.innerHTML = `
+                            <div class="col-span-full text-center py-8 text-danger">
+                                <i class="fa fa-exclamation-triangle text-2xl mb-2"></i>
+                                <p>加载失败: ${result.message || '未知错误'}</p>
+                            </div>
+                        `;
+                    }
+                } catch (err) {
+                    console.error('加载链接失败:', err);
+                    linksContainer.innerHTML = `
+                        <div class="col-span-full text-center py-8 text-danger">
+                            <i class="fa fa-exclamation-triangle text-2xl mb-2"></i>
+                            <p>网络错误，无法加载链接</p>
+                        </div>
+                    `;
+                }
+            }
+            
+            // 渲染链接列表
+            function renderLinks(links) {
+                linksContainer.innerHTML = '';
+                
+                if (links.length === 0) {
+                    linksContainer.innerHTML = `
+                        <div class="col-span-full text-center py-8 text-gray-500">
+                            <i class="fa fa-link text-2xl mb-2"></i>
+                            <p>暂无链接，进入管理模式添加吧～</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                links.forEach(link => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-white p-4 rounded shadow card-hover';
+                    card.innerHTML = `
+                        <div class="flex justify-between">
+                            <h3>${link.name}</h3>
+                            <button class="delete-btn text-gray-400 hover:text-danger hidden" data-name="${link.name}">
+                                <i class="fa fa-times"></i>
+                            </button>
+                        </div>
+                        <p class="text-sm text-gray-500 truncate">${link.url}</p>
+                        <a href="${link.url}" target="_blank" class="text-primary text-sm hover:underline">访问</a>
+                    `;
+                    linksContainer.appendChild(card);
+                });
+                
+                // 绑定删除按钮事件
+                bindDeleteEvents();
+            }
+            
+            // 绑定删除按钮事件（暂未实现后端接口，仅做前端占位）
+            function bindDeleteEvents() {
+                document.querySelectorAll('.delete-btn').forEach(btn => {
+                    btn.addEventListener('click', async function() {
+                        const name = this.getAttribute('data-name');
+                        if (confirm(`确定要删除 ${name} 吗？`)) {
+                            alert('删除功能需后端配合实现，当前仅为演示');
+                            // 实际删除逻辑需调用后端接口
+                            // loadLinks(); // 刷新列表
+                        }
+                    });
+                });
+            }
+            
+            // 修复：添加表单提交逻辑（修正ID匹配问题）
+            document.getElementById('urlForm').addEventListener('submit', async function (e) {
+                e.preventDefault();
+
+                // 修复：使用正确的ID获取输入值（与HTML中的id="name"和id="url"匹配）
+                const name = document.getElementById('name').value.trim();
+                const url = document.getElementById('url').value.trim();
+
+                // 表单验证
+                if (!name || !url) {
+                    alert('请填写名称和网址');
+                    return;
+                }
+
+                // 验证管理令牌
+                const token = localStorage.getItem('manageToken');
+                if (!token) {
+                    alert('请先验证身份');
+                    return;
+                }
+
+                try {
+                    // 发送添加请求到后端
+                    const response = await fetch('/add-url', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}` // 规范的Bearer令牌格式
+                        },
+                        body: JSON.stringify({ name, url })
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        alert('添加成功！');
+                        // 清空表单
+                        document.getElementById('name').value = '';
+                        document.getElementById('url').value = '';
+                        // 重新加载列表
+                        loadLinks();
+                    } else {
+                        alert('添加失败：' + (result.message || '未知错误'));
+                    }
+                } catch (err) {
+                    console.error('添加请求失败:', err);
+                    alert('请求出错，请稍后再试');
+                }
+            });
+
+            // 初始检查：如果已有令牌，直接进入管理模式
+            if (manageToken) {
+                isManageMode = true;
+                updateUI();
+            }
         });
     </script>
 </body>
 </html>
-    
