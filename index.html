@@ -147,7 +147,7 @@
                 }
                 
                 try {
-                    // 发送验证请求到后端（需要新建verify-admin.js处理）
+                    // 发送验证请求到后端
                     const response = await fetch('/verify-admin', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -261,15 +261,41 @@
                 bindDeleteEvents();
             }
             
-            // 绑定删除按钮事件（暂未实现后端接口，仅做前端占位）
+            // 绑定删除按钮事件（完整实现）
             function bindDeleteEvents() {
                 document.querySelectorAll('.delete-btn').forEach(btn => {
                     btn.addEventListener('click', async function() {
                         const name = this.getAttribute('data-name');
-                        if (confirm(`确定要删除 ${name} 吗？`)) {
-                            alert('删除功能需后端配合实现，当前仅为演示');
-                            // 实际删除逻辑需调用后端接口
-                            // loadLinks(); // 刷新列表
+                        if (!confirm(`确定要删除「${name}」吗？`)) {
+                            return;
+                        }
+
+                        const token = localStorage.getItem('manageToken');
+                        if (!token) {
+                            alert('请先验证身份');
+                            return;
+                        }
+
+                        try {
+                            // 发送删除请求到后端
+                            const response = await fetch(`/delete-url?name=${encodeURIComponent(name)}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`
+                                }
+                            });
+
+                            const result = await response.json();
+
+                            if (response.ok && result.success) {
+                                alert('删除成功！');
+                                loadLinks(); // 重新加载列表
+                            } else {
+                                alert('删除失败：' + (result.message || '未知错误'));
+                            }
+                        } catch (err) {
+                            console.error('删除请求失败:', err);
+                            alert('网络错误，删除失败');
                         }
                     });
                 });
