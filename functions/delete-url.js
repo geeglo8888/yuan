@@ -1,4 +1,4 @@
-export async function onRequest({ request, env }) {
+<export async function onRequest({ request, env }) {
   const headers = {
     "Content-Type": "application/json",
     "Access-Control-Allow-Origin": "*",
@@ -38,21 +38,35 @@ export async function onRequest({ request, env }) {
       );
     }
 
-    // 从 D1 中删除
+    // 从 D1 中删除（打印调试信息）
     const result = await env.DB.prepare(
       "DELETE FROM links WHERE name = ?"
     ).bind(name)
      .run();
 
-    if (result.success && result.changes > 0) {  // changes 表示影响的行数
-      return new Response(
-        JSON.stringify({ success: true, message: "删除成功" }),
-        { headers }
-      );
+    // 打印结果到日志（方便排查，部署后可在Cloudflare控制台查看）
+    console.log(`删除 ${name} 的结果:`, result);
+
+    // 修复判断逻辑：优先判断操作是否成功，再参考影响行数
+    if (result.success) {
+      // 即使 changes 为 0，只要操作成功，也可能是因为数据已被删除（重复删除）
+      if (result.changes > 0) {
+        return new Response(
+          JSON.stringify({ success: true, message: "删除成功" }),
+          { headers }
+        );
+      } else {
+        // 操作成功但未影响行数（可能是重复删除）
+        return new Response(
+          JSON.stringify({ success: true, message: "删除成功（该链接已不存在）" }),
+          { headers }
+        );
+      }
     } else {
+      // 操作失败（如SQL错误）
       return new Response(
-        JSON.stringify({ success: false, message: "未找到该链接" }),
-        { status: 404, headers }
+        JSON.stringify({ success: false, message: "删除失败" }),
+        { status: 500, headers }
       );
     }
   } catch (err) {
